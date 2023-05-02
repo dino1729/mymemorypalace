@@ -1,0 +1,15 @@
+version: '3.6'
+
+services:
+  paulgrahamgpt:
+    build: .
+    ports:
+      - 3001:3000
+    env_file:
+      - .env.local
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
