@@ -5,6 +5,7 @@ COPY package*.json ./
 
 # ---- Dependencies ----
 FROM base AS dependencies
+RUN apt-get update && apt-get install -y python
 RUN npm ci
 
 # ---- Build ----
