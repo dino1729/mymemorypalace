@@ -4,7 +4,7 @@ services:
   mymemorypalace:
     build: .
     ports:
-      - 3002:3000
+      - 3001:3001
     env_file:
       - .env.local
     restart: always
