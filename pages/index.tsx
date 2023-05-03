@@ -150,18 +150,18 @@ export default function Home() {
       return;
     }
 
-    localStorage.setItem("PG_KEY", apiKey);
-    localStorage.setItem("PG_MATCH_COUNT", matchCount.toString());
-    localStorage.setItem("PG_MODE", mode);
+    localStorage.setItem("MP_KEY", apiKey);
+    localStorage.setItem("MP_MATCH_COUNT", matchCount.toString());
+    localStorage.setItem("MP_MODE", mode);
 
     setShowSettings(false);
     inputRef.current?.focus();
   };
 
   const handleClear = () => {
-    localStorage.removeItem("PG_KEY");
-    localStorage.removeItem("PG_MATCH_COUNT");
-    localStorage.removeItem("PG_MODE");
+    localStorage.removeItem("MP_KEY");
+    localStorage.removeItem("MP_MATCH_COUNT");
+    localStorage.removeItem("MP_MODE");
 
     setApiKey("");
     setMatchCount(5);
@@ -177,20 +177,20 @@ export default function Home() {
   }, [matchCount]);
 
   useEffect(() => {
-    const PG_KEY = localStorage.getItem("PG_KEY");
-    const PG_MATCH_COUNT = localStorage.getItem("PG_MATCH_COUNT");
-    const PG_MODE = localStorage.getItem("PG_MODE");
+    const MP_KEY = localStorage.getItem("MP_KEY");
+    const MP_MATCH_COUNT = localStorage.getItem("MP_MATCH_COUNT");
+    const MP_MODE = localStorage.getItem("MP_MODE");
 
-    if (PG_KEY) {
-      setApiKey(PG_KEY);
+    if (MP_KEY) {
+      setApiKey(MP_KEY);
     }
 
-    if (PG_MATCH_COUNT) {
-      setMatchCount(parseInt(PG_MATCH_COUNT));
+    if (MP_MATCH_COUNT) {
+      setMatchCount(parseInt(MP_MATCH_COUNT));
     }
 
-    if (PG_MODE) {
-      setMode(PG_MODE as "search" | "chat");
+    if (MP_MODE) {
+      setMode(MP_MODE as "search" | "chat");
     }
 
     inputRef.current?.focus();

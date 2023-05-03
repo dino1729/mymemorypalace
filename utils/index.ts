@@ -31,7 +31,7 @@ export const OpenAIStream = async (prompt: string, apiKey: string) => {
       ]
     })
   });
-  console.log(prompt);
+  //console.log(prompt);
   //console.log(res);
 
   if (res.status !== 200) {
