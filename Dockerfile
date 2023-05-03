@@ -1,5 +1,5 @@
 # ---- Base Node ----
-FROM node:slim-buster AS base
+FROM node:19-alpine AS base
 WORKDIR /app
 COPY package*.json ./
 
@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # ---- Production ----
-FROM node:slim-buster AS production
+FROM node:19-alpine AS production
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
