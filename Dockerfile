@@ -1,29 +1,20 @@
-# ---- Base Node ----
-FROM node:19-alpine AS base
+# Use the official Node.js image as the base image
+FROM node:19-buster-slim
+
+# Set the working directory inside the container
 WORKDIR /app
+
+# Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 
-# ---- Dependencies ----
-FROM base AS dependencies
-RUN apk update && apk add --no-cache python3
+# Install the dependencies
 RUN npm ci
 
-# ---- Build ----
-FROM dependencies AS build
+# Copy the rest of the application code to the working directory
 COPY . .
-RUN npm run build
-
-# ---- Production ----
-FROM node:19-alpine AS production
-WORKDIR /app
-COPY --from=dependencies /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/next.config.js ./next.config.js
 
 # Expose the port the app will run on
 EXPOSE 3001
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev"]
