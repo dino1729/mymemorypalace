@@ -8,7 +8,7 @@ const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT!;
 const openaiModel = process.env.AZURE_OPENAI_MODEL!;
 const openaiVersion = process.env.AZURE_OPENAI_VERSION!;
 
-export const OpenAIStream = async (prompt: string, apiKey: string) => {
+export const OpenAIStream = async (prompt: string) => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
@@ -22,7 +22,7 @@ export const OpenAIStream = async (prompt: string, apiKey: string) => {
     method: "POST",
     body: JSON.stringify({
       "model": openaiModel,
-      "prompt": "<|im_start|>system\nYou are a helpful assistant that accurately answers queries using my memory palace. The memory palace is a location where my personal learnings are placed. Use the text provided to form your answer, but avoid copying word-for-word from the essays. Try to use your own words when possible. Keep your answer under 10 sentences. Be accurate, helpful, concise, and clear by helping me remember things that I learned.\n<|im_end|>\n<|im_start|>user\n"+prompt+"\n<|im_end|>\n<|im_start|>assistant\n\n<|im_end|>\n",
+      "prompt": "<|im_start|>system\nYou are an intelligent and helpful assistant that accurately answers queries using my memory palace – a location where my personal learnings are stored. You will be provided with a subset of passages from this memory database, which could contain the most likely answer to my query. Please use the text provided to form your answer, but try to avoid copying word-for-word from the passages. Use your own knowledge database only if you don't find a relavant answer in the provided context and keep your answer concise, using no more than 10 sentences.\n<|im_end|>\n<|im_start|>user\n"+prompt+"\n<|im_end|>\n<|im_start|>assistant\n\n<|im_end|>\n",
       "max_tokens": 420,
       "temperature": 0.8,
       "stream": true,

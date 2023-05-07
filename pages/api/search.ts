@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/utils";
+const openaiApiKey = process.env.AZURE_OPENAI_APIKEY!;
 const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT!;
 const openaiEmbedding = process.env.AZURE_OPENAI_EMBEDDING!;
 const openaiVersion = process.env.AZURE_OPENAI_VERSION!;
@@ -9,9 +10,8 @@ export const config = {
 const handler = async (req: Request): Promise<Response> => {
 
   try {
-    const { query, apiKey, matches } = (await req.json()) as {
+    const { query, matches } = (await req.json()) as {
       query: string;
-      apiKey: string;
       matches: number;
     };
 
@@ -22,7 +22,7 @@ const handler = async (req: Request): Promise<Response> => {
     const res = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
-        "api-key": apiKey
+        "api-key": openaiApiKey
       },
       method: "POST",
       body: JSON.stringify({
