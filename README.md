@@ -1,20 +1,16 @@
-# Paul Graham GPT
+# My Memory Palace
 
-AI-powered search and chat for [Paul Graham's](https://twitter.com/paulg) [essays](http://www.paulgraham.com/articles.html).
+AI-powered search and chat for my memory palace.
 
 All code & data used is 100% open-source.
 
 ## Dataset
 
-The dataset is a CSV file containing all text & embeddings used.
-
-Download it [here](https://drive.google.com/file/d/1BxcPw2mn0VYFucc62wlt9H0nQiOu38ki/view?usp=sharing).
-
-I recommend getting familiar with fetching, cleaning, and storing data as outlined in the scraping and embedding scripts below, but feel free to skip those steps and just use the dataset.
-
+The dataset comes from supabase database where I store my embeddings from the articles/videos/pdfs I consume.
+Here is the repo for the LLM Bot: https://github.com/dino1729/LLM_QA_Bot
 ## How It Works
 
-Paul Graham GPT provides 2 things:
+My Memory Palace provides 2 things:
 
 1. A search interface.
 2. A chat interface.
@@ -35,7 +31,7 @@ Results are ranked by similarity score and returned to the user.
 
 ### Chat
 
-Chat builds on top of search. It uses search results to create a prompt that is fed into GPT-3.5-turbo.
+Chat builds on top of search. It uses search results to create a prompt that is fed into GPT-3.5-turbo-16k.
 
 This allows for a chat-like experience where the user can ask questions about the book and get answers.
 
@@ -114,22 +110,12 @@ This process will take 20-30 minutes.
 npm run dev
 ```
 
+### Docker Build
+
+docker build -t mymemorypalace .
+docker run -p 3001:3001 --env-file .env.local --restart always --name mymemorypalace-container mymemorypalace
+
+
 ## Credits
 
-Thanks to [Paul Graham](https://twitter.com/paulg) for his writing.
-
-I highly recommend you read his essays.
-
-3 years ago they convinced me to learn to code, and it changed my life.
-
-## Contact
-
-If you have any questions, feel free to reach out to me on [Twitter](https://twitter.com/mckaywrigley)!
-
-## Notes
-
-I sacrificed composability for simplicity in the app.
-
-Yes, you can make things more modular and reusable.
-
-But I kept pretty much everything in the homepage component for the sake of simplicity.
+This is a project forked from https://github.com/mckaywrigley/paul-graham-gpt
