@@ -112,9 +112,10 @@ npm run dev
 
 ### Docker Build
 
+```bash
 docker build -t mymemorypalace .
 docker run -p 3001:3001 --env-file .env.local --restart always --name mymemorypalace-container mymemorypalace
-
+```
 
 ## Credits
 
