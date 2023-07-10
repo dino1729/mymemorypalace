@@ -17,7 +17,8 @@ export default function Home() {
 
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [mode, setMode] = useState<"search" | "chat">("chat");
-  const [matchCount, setMatchCount] = useState<number>(5);
+  //const [matchCount, setMatchCount] = useState<number>(5);
+  const [matchCount, setMatchCount] = useState<number>(6);
   // const [apiKey, setApiKey] = useState<string>("");
 
   const handleSearch = async () => {
@@ -51,13 +52,9 @@ export default function Home() {
     }
 
     const results: MPChunk[] = await searchResponse.json();
-
     setChunks(results);
-
     setLoading(false);
-
     inputRef.current?.focus();
-
     return results;
   };
 
@@ -110,12 +107,15 @@ export default function Home() {
       body: JSON.stringify({ prompt })
     });
 
+    //console.log(answerResponse);
+
     if (!answerResponse.ok) {
       setLoading(false);
       throw new Error(answerResponse.statusText);
     }
 
     const data = answerResponse.body;
+    //console.log(data);
 
     if (!data) {
       return;

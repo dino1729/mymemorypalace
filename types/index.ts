@@ -3,7 +3,7 @@
 // }
 
 export enum OpenAIModel {
-  DAVINCI_TURBO = "gpt-3p5-turbo"
+  DAVINCI_TURBO = "gpt-3p5-turbo-16k"
 }
 
 export type MemoryPalace = {

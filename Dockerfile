@@ -1,5 +1,5 @@
 # Use the official Node.js Alpine image as the base image
-FROM node:alpine
+FROM node:latest
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install the dependencies
-RUN npm ci
+RUN npm ci --force
 
 # Copy the rest of the application code to the working directory
 COPY . .
