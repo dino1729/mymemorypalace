@@ -22,7 +22,6 @@ export const OpenAIStream = async (prompt: string) => {
     method: "POST",
     body: JSON.stringify({
       "model": openaiModel,
-      // "prompt": "<|im_start|>system\nYou are an intelligent and helpful assistant that accurately answers queries using my memory palace – a location where my personal learnings are stored. You will be provided with a subset of passages from this memory database, which could contain the most likely answer to my query. Please use the context provided to form your answer, but try to avoid copying word-for-word from the passages. Use your own knowledge database only if you don't find a relavant answer in the provided context and keep your answer concise, using no more than 10 sentences.\n<|im_end|>\n<|im_start|>user\n"+prompt+"\n<|im_end|>\n<|im_start|>assistant\n\n<|im_end|>\n",
       "messages": [
         {
           "role": "system",
@@ -33,18 +32,12 @@ export const OpenAIStream = async (prompt: string) => {
           "content": prompt,
         },
       ],
-      "max_tokens": 420,
-      "temperature": 0.8,
+      "max_tokens": 840,
+      "temperature": 0.4,
       "stream": true,
-      // "stop": [
-      //   "<|im_end|>"
-      // ]
       "stop": null,
     })
   });
-  //console.log(openaiModel);
-  //console.log(prompt);
-  //console.log(res);
 
   if (res.status !== 200) {
     const error = new Error(`Azure OpenAI ChatGPT API returned an error with status code ${res.status}`);
@@ -55,26 +48,47 @@ export const OpenAIStream = async (prompt: string) => {
 
   const stream = new ReadableStream({
     async start(controller) {
+
+      let timeoutId: NodeJS.Timeout | undefined;
+      let isControllerClosed = false;
+
       const onParse = (event: ParsedEvent | ReconnectInterval) => {
         if (event.type === "event") {
           const data = event.data;
 
-          if (data === "[DONE]") {
-            controller.close();
-            return;
-          }
+          // if (data === "[DONE]") {
+          //   controller.close();
+          //   return;
+          // }
 
+          // try {
+          //   const json = JSON.parse(data);
+          //   //console.log(json);
+          //   const text = json.choices[0].delta.content;
+          //   //const text = json.choices[0].text;
+          //   //console.log(text);
+          //   const queue = encoder.encode(text);
+          //   controller.enqueue(queue);
+          // } catch (e) {
+          //   controller.error(e);
+          // }
           try {
             const json = JSON.parse(data);
-            //console.log(json);
+            if (json.choices[0].finish_reason != null || data === '[DONE]') {
+              if (!isControllerClosed) { // Check if controller is not already closed
+                clearTimeout(timeoutId);
+                controller.close();
+                isControllerClosed = true; // Set the flag to true
+              }
+              return;
+            }
             const text = json.choices[0].delta.content;
-            //const text = json.choices[0].text;
-            //console.log(text);
             const queue = encoder.encode(text);
             controller.enqueue(queue);
           } catch (e) {
             controller.error(e);
           }
+
         }
       };
 
@@ -83,7 +97,18 @@ export const OpenAIStream = async (prompt: string) => {
       for await (const chunk of res.body as any) {
         parser.feed(decoder.decode(chunk));
       }
-    }
+
+      // Set the timeout to close the controller after a specified duration (e.g., 10 seconds)
+      const timeoutDuration = 1000; // 1 seconds (adjust as needed)
+      timeoutId = setTimeout(() => {
+        // Only close the controller if it's not already closed
+        if (!isControllerClosed) {
+          controller.close();
+          isControllerClosed = true; // Set the flag to true
+        }
+      }, timeoutDuration);
+
+    },
   });
 
   return stream;

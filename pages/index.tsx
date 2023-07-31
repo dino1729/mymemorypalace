@@ -93,7 +93,7 @@ export default function Home() {
     setChunks(results);
 
     const prompt = endent`
-    Use the following passages to provide an answer to the query: "${query}"
+    Use the following passages from my memory palace to provide an answer to the query: "${query}"
 
     ${results?.map((d: any) => d.content).join("\n\n")}
     `;
@@ -205,7 +205,7 @@ export default function Home() {
         <title>Memory Palace</title>
         <meta
           name="description"
-          content={`AI-powered search and chat for my Memory Palace.`}
+          content={`AI-powered search and chat for Dino's Memory Palace.`}
         />
         <meta
           name="viewport"
