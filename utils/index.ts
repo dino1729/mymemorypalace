@@ -8,6 +8,20 @@ const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT!;
 const openaiModel = process.env.AZURE_OPENAI_MODEL!;
 const openaiVersion = process.env.AZURE_OPENAI_VERSION!;
 
+export class OpenAIError extends Error {
+  type: string;
+  param: string;
+  code: string;
+
+  constructor(message: string, type: string, param: string, code: string) {
+    super(message);
+    this.name = 'OpenAIError';
+    this.type = type;
+    this.param = param;
+    this.code = code;
+  }
+}
+
 export const OpenAIStream = async (prompt: string) => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -35,79 +49,125 @@ export const OpenAIStream = async (prompt: string) => {
       "max_tokens": 840,
       "temperature": 0.4,
       "stream": true,
-      "stop": null,
     })
   });
 
   if (res.status !== 200) {
-    const error = new Error(`Azure OpenAI ChatGPT API returned an error with status code ${res.status}`);
-    error.stack = await res.text();
-    console.error(error);
-    throw error;
+    const result = await res.json();
+    if (result.error) {
+      throw new OpenAIError(
+        result.error.message,
+        result.error.type,
+        result.error.param,
+        result.error.code,
+      );
+    } else {
+      throw new Error(
+        `OpenAI API returned an error: ${
+          decoder.decode(result?.value) || result.statusText
+        }`,
+      );
+    }
   }
+
+  // const stream = new ReadableStream({
+  //   async start(controller) {
+
+  //     let timeoutId: NodeJS.Timeout | undefined;
+  //     let isControllerClosed = false;
+
+  //     const onParse = (event: ParsedEvent | ReconnectInterval) => {
+  //       if (event.type === "event") {
+  //         const data = event.data;
+
+  //         // if (data === "[DONE]") {
+  //         //   controller.close();
+  //         //   return;
+  //         // }
+
+  //         // try {
+  //         //   const json = JSON.parse(data);
+  //         //   //console.log(json);
+  //         //   const text = json.choices[0].delta.content;
+  //         //   //const text = json.choices[0].text;
+  //         //   //console.log(text);
+  //         //   const queue = encoder.encode(text);
+  //         //   controller.enqueue(queue);
+  //         // } catch (e) {
+  //         //   controller.error(e);
+  //         // }
+  //         try {
+  //           const json = JSON.parse(data);
+  //           if (json.choices[0].finish_reason != null || data === '[DONE]') {
+  //             if (!isControllerClosed) { // Check if controller is not already closed
+  //               clearTimeout(timeoutId);
+  //               controller.close();
+  //               isControllerClosed = true; // Set the flag to true
+  //             }
+  //             return;
+  //           }
+  //           const text = json.choices[0].delta.content;
+  //           const queue = encoder.encode(text);
+  //           controller.enqueue(queue);
+  //         } catch (e) {
+  //           controller.error(e);
+  //         }
+
+  //       }
+  //     };
+
+  //     const parser = createParser(onParse);
+
+  //     for await (const chunk of res.body as any) {
+  //       parser.feed(decoder.decode(chunk));
+  //     }
+
+  //     // Set the timeout to close the controller after a specified duration (e.g., 10 seconds)
+  //     const timeoutDuration = 1000; // 1 seconds (adjust as needed)
+  //     timeoutId = setTimeout(() => {
+  //       // Only close the controller if it's not already closed
+  //       if (!isControllerClosed) {
+  //         controller.close();
+  //         isControllerClosed = true; // Set the flag to true
+  //       }
+  //     }, timeoutDuration);
+
+  //   },
+  // });
 
   const stream = new ReadableStream({
     async start(controller) {
-
-      let timeoutId: NodeJS.Timeout | undefined;
-      let isControllerClosed = false;
-
       const onParse = (event: ParsedEvent | ReconnectInterval) => {
-        if (event.type === "event") {
+        if (event.type === 'event') {
           const data = event.data;
-
-          // if (data === "[DONE]") {
-          //   controller.close();
-          //   return;
-          // }
-
-          // try {
-          //   const json = JSON.parse(data);
-          //   //console.log(json);
-          //   const text = json.choices[0].delta.content;
-          //   //const text = json.choices[0].text;
-          //   //console.log(text);
-          //   const queue = encoder.encode(text);
-          //   controller.enqueue(queue);
-          // } catch (e) {
-          //   controller.error(e);
-          // }
+  
+          //console.log(data);
+  
           try {
             const json = JSON.parse(data);
-            if (json.choices[0].finish_reason != null || data === '[DONE]') {
-              if (!isControllerClosed) { // Check if controller is not already closed
-                clearTimeout(timeoutId);
+  
+            if (json.choices[0]) {
+              if (json.choices[0].finish_reason != null) {
                 controller.close();
-                isControllerClosed = true; // Set the flag to true
+                return;
               }
-              return;
+              const text = json.choices[0].delta.content;
+              const queue = encoder.encode(text);
+              controller.enqueue(queue);
             }
-            const text = json.choices[0].delta.content;
-            const queue = encoder.encode(text);
-            controller.enqueue(queue);
           } catch (e) {
+            // Handle JSON parsing or other errors more gracefully
+            //console.error("Error processing JSON data:", e);
             controller.error(e);
           }
-
         }
       };
-
+  
       const parser = createParser(onParse);
-
+  
       for await (const chunk of res.body as any) {
         parser.feed(decoder.decode(chunk));
       }
-
-      // Set the timeout to close the controller after a specified duration (e.g., 10 seconds)
-      const timeoutDuration = 1000; // 1 seconds (adjust as needed)
-      timeoutId = setTimeout(() => {
-        // Only close the controller if it's not already closed
-        if (!isControllerClosed) {
-          controller.close();
-          isControllerClosed = true; // Set the flag to true
-        }
-      }, timeoutDuration);
-
     },
   });
 
