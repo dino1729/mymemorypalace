@@ -1,5 +1,7 @@
 import { Answer } from "@/components/Answer/Answer";
 import { Footer } from "@/components/Footer";
+import { ModelSelect } from '@/components/ModelSelect';
+import { OpenAIModel } from '@/types/index';
 import { Navbar } from "@/components/Navbar";
 import { MPChunk } from "@/types";
 import { IconArrowRight, IconExternalLink, IconSearch } from "@tabler/icons-react";
@@ -14,11 +16,11 @@ export default function Home() {
   const [chunks, setChunks] = useState<MPChunk[]>([]);
   const [answer, setAnswer] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-
+  const [model, setModel] = useState<OpenAIModel>('gpt-35-turbo-16k');
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [mode, setMode] = useState<"search" | "chat">("chat");
   //const [matchCount, setMatchCount] = useState<number>(5);
-  const [matchCount, setMatchCount] = useState<number>(6);
+  const [matchCount, setMatchCount] = useState<number>(10);
   // const [apiKey, setApiKey] = useState<string>("");
 
   const handleSearch = async () => {
@@ -167,7 +169,7 @@ export default function Home() {
     localStorage.removeItem("MP_MODE");
 
     //setApiKey("");
-    setMatchCount(5);
+    setMatchCount(10);
     setMode("search");
   };
 
@@ -217,6 +219,14 @@ export default function Home() {
         />
       </Head>
 
+      {/* <div className="mt-2 flex items-center space-x-2">
+              <ModelSelect
+                model={model}
+                onChange={(value) => setModel(value)}
+              />
+        </div> */}
+
+
       <div className="flex flex-col h-screen">
         <Navbar />
         <div className="flex-1 overflow-auto">
@@ -229,7 +239,21 @@ export default function Home() {
             </button>
 
             {showSettings && (
+
               <div className="w-[340px] sm:w-[400px]">
+
+              <div>
+                  <div>Model</div>
+                  <select
+                    className="max-w-[400px] block w-full cursor-pointer rounded-md border border-gray-300 p-2 text-black shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value as "gpt-35-turbo-16k" | "gpt-4")}
+                  >
+                    <option value="gpt-35-turbo-16k">GPT-35-TURBO-16K</option>
+                    <option value="gpt-4">GPT-4</option>
+                  </select>
+                </div>
+
                 <div>
                   <div>Mode</div>
                   <select
@@ -254,23 +278,6 @@ export default function Home() {
                   />
                 </div>
 
-                {/* <div className="mt-2">
-                  <div>OpenAI API Key</div>
-                  <input
-                    type="password"
-                    placeholder="OpenAI API Key"
-                    className="max-w-[400px] block w-full rounded-md border border-gray-300 p-2 text-black shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-
-                      if (e.target.value.length !== 32) {
-                        setShowSettings(true);
-                      }
-                    }}
-                  />
-                </div> */}
-
                 <div className="mt-4 flex space-x-2 justify-center">
                   <div
                     className="flex cursor-pointer items-center space-x-2 rounded-full bg-green-500 px-3 py-1 text-sm text-white hover:bg-green-600"
@@ -289,39 +296,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* {apiKey.length === 32 ? (
-              <div className="relative w-full mt-4">
-                <IconSearch className="absolute top-3 w-10 left-1 h-6 rounded-full opacity-50 sm:left-3 sm:top-4 sm:h-8" />
-
-                <input
-                  ref={inputRef}
-                  className="h-12 w-full rounded-full border border-zinc-600 pr-12 pl-11 focus:border-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-800 sm:h-16 sm:py-2 sm:pr-16 sm:pl-16 sm:text-lg"
-                  type="text"
-                  placeholder="What did I learn so far?"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-
-                <button>
-                  <IconArrowRight
-                    onClick={mode === "search" ? handleSearch : handleAnswer}
-                    className="absolute right-2 top-2.5 h-7 w-7 rounded-full bg-blue-500 p-1 hover:cursor-pointer hover:bg-blue-600 sm:right-3 sm:top-3 sm:h-10 sm:w-10 text-white"
-                  />
-                </button>
-              </div>
-            ) : (
-              <div className="text-center font-bold text-3xl mt-7">
-                Please enter your
-                <a
-                  className="mx-2 underline hover:opacity-50"
-                  href="https://platform.openai.com/account/api-keys"
-                >
-                  OpenAI API key
-                </a>
-                in settings.
-              </div>
-            )} */}
             <div className="relative w-full mt-4">
               <IconSearch className="absolute top-3 w-10 left-1 h-6 rounded-full opacity-50 sm:left-3 sm:top-4 sm:h-8" />
 
