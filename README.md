@@ -35,9 +35,14 @@ This allows for a chat-like experience where the user can ask questions about th
 
 # Examples
 
+Search Example:
 ![Search](./public/search.png)
 
+Chat Example:
 ![Chat](./public/chat.png)
+
+Another Chat Example:
+![Chat](./public/stevejobsanalogy.png)
 
 ## Running Locally
 
