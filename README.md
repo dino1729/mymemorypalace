@@ -19,9 +19,7 @@ My Memory Palace provides 2 things:
 
 Search was created with [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings) (`text-embedding-ada-002`).
 
-First, we loop over the essays and generate embeddings for each chunk of text.
-
-Then in the app we take the user's search query, generate an embedding, and use the result to find the most similar passages from the book.
+In the app we take the user's search query, generate an embedding, and use the result to find the most similar chunks from my memory palace.
 
 The comparison is done using cosine similarity across our database of vectors.
 
@@ -35,6 +33,12 @@ Chat builds on top of search. It uses search results to create a prompt that is 
 
 This allows for a chat-like experience where the user can ask questions about the book and get answers.
 
+# Examples
+
+![Search](./public/search.png)
+
+![Chat](./public/chat.png)
+
 ## Running Locally
 
 Here's a quick overview of how to run it locally.
@@ -45,15 +49,7 @@ Here's a quick overview of how to run it locally.
 
 You'll need an OpenAI API key to generate embeddings.
 
-2. Set up Supabase and create a database
-
-Note: You don't have to use Supabase. Use whatever method you prefer to store your data. But I like Supabase and think it's easy to use.
-
-There is a schema.sql file in the root of the repo that you can use to set up the database.
-
-Run that in the SQL editor in Supabase as directed.
-
-I recommend turning on Row Level Security and setting up a service role to use with the app.
+2. Set up Supabase and create a database and check the memorize box in the LLM QA Bot app to upload the embeddings to the memory palace database.
 
 ### Repo Setup
 
@@ -79,28 +75,6 @@ OPENAI_API_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
-
-### Dataset
-
-6. Run scraping script
-
-```bash
-npm run scrape
-```
-
-This scrapes all of the essays from Paul Graham's website and saves them to a json file.
-
-7. Run embedding script
-
-```bash
-npm run embed
-```
-
-This reads the json file, generates embeddings for each chunk of text, and saves the results to your database.
-
-There is a 200ms delay between each request to avoid rate limiting.
-
-This process will take 20-30 minutes.
 
 ### App
 
