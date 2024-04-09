@@ -17,7 +17,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const input = query.replace(/\n/g, " ");
 
-    let url = `${openaiEndpoint}openai/deployments/${openaiEmbedding}/embeddings?api-version=2022-12-01`;
+    let url = `${openaiEndpoint}openai/deployments/${openaiEmbedding}/embeddings?api-version=2023-05-15`;
 
     const res = await fetch(url, {
       headers: {
