@@ -16,11 +16,11 @@ export default function Home() {
   const [chunks, setChunks] = useState<MPChunk[]>([]);
   const [answer, setAnswer] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [model, setModel] = useState<OpenAIModel>('gpt-3p5-turbo-16k');
+  const [model, setModel] = useState<OpenAIModel>('gpt-4');
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [mode, setMode] = useState<"search" | "chat">("chat");
   //const [matchCount, setMatchCount] = useState<number>(5);
-  const [matchCount, setMatchCount] = useState<number>(10);
+  const [matchCount, setMatchCount] = useState<number>(5);
   // const [apiKey, setApiKey] = useState<string>("");
 
   const handleSearch = async () => {
