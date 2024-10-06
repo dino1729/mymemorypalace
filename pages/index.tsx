@@ -247,9 +247,9 @@ export default function Home() {
                   <select
                     className="max-w-[400px] block w-full cursor-pointer rounded-md border border-gray-300 p-2 text-black shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
                     value={model}
-                    onChange={(e) => setModel(e.target.value as "gpt-3p5-turbo-16k" | "gpt-4")}
+                    onChange={(e) => setModel(e.target.value as "gpt-4o-mini" | "gpt-4")}
                   >
-                    <option value="gpt-3p5-turbo-16k">GPT-35-TURBO-16K</option>
+                    <option value="gpt-4o-mini">GPT-4O-MINI</option>
                     <option value="gpt-4">GPT-4</option>
                   </select>
                 </div>

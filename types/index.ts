@@ -1,8 +1,8 @@
 // export enum OpenAIModel {
-//   GPT35_TURBO_16K = "gpt-3p5-turbo-16k",
+//   GPT35_TURBO_16K = "gpt-4o-mini",
 //   GPT4 = "gpt-4",
 // }
-export type OpenAIModel = 'gpt-3p5-turbo-16k' | 'gpt-4';
+export type OpenAIModel = 'gpt-4o-mini' | 'gpt-4';
 
 export type MemoryPalace = {
   title: string;
