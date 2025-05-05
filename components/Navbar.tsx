@@ -1,32 +1,12 @@
-import { IconExternalLink } from "@tabler/icons-react";
 import { FC } from "react";
 
 export const Navbar: FC = () => {
   return (
-    <div className="flex h-[60px] border-b border-gray-300 py-2 px-8 items-center justify-between">
-      <div className="font-bold text-2xl flex items-center">
-        <a
-          className="hover:opacity-50"
-          href="https://twitter.com/dino1729"
-        >
-          My Memory Palace
-        </a>
+    <div className="flex h-[60px] py-2 px-8 items-center justify-between bg-white dark:bg-zinc-900 transition-colors">
+      <div className="font-bold text-2xl flex items-center text-zinc-900 dark:text-zinc-100">
+        My Memory Palace
       </div>
-      <div>
-        <a
-          className="flex items-center hover:opacity-50"
-          href="http://twitter.com/dino1729"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <div className="hidden sm:flex">dinozard.com</div>
-
-          <IconExternalLink
-            className="ml-1"
-            size={20}
-          />
-        </a>
-      </div>
+      {/* Removed external link and underline */}
     </div>
   );
 };
