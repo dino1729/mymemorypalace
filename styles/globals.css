@@ -3,9 +3,20 @@
 @tailwind utilities;
 
 html, body, #__next {
-  font-family: 'Poppins', Arial, Helvetica, sans-serif !important;
+  font-family: "Space Grotesk", Arial, Helvetica, sans-serif !important;
+  min-height: 100%;
 }
 
 * {
   font-family: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Fraunces", Georgia, serif;
+}
+
+body {
+  margin: 0;
 }

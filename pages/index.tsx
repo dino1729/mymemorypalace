@@ -1,57 +1,112 @@
 import { Answer } from "@/components/Answer/Answer";
+import { ExamplePrompts } from "@/components/ExamplePrompts";
 import { Footer } from "@/components/Footer";
-import { ModelSelect } from '@/components/ModelSelect';
-import { OpenAIModel } from '@/types/index';
+import { MemoryGraph } from "@/components/MemoryGraph";
 import { Navbar } from "@/components/Navbar";
-import { MPChunk } from "@/types";
-import { IconArrowRight, IconExternalLink, IconSearch } from "@tabler/icons-react";
-import { IconMoon, IconSun } from "@tabler/icons-react";
+import { PassageCard } from "@/components/PassageCard";
+import { DiscoveryPayload, MPChunk } from "@/types";
+import {
+  IconArrowRight,
+  IconMoon,
+  IconSearch,
+  IconSettings,
+  IconSparkles,
+  IconSun,
+} from "@tabler/icons-react";
 import endent from "endent";
 import Head from "next/head";
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
-import { PassageCard } from "@/components/PassageCard";
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+
+type AppMode = "search" | "chat";
+
+const SETTINGS_KEY_MATCH_COUNT = "MP_MATCH_COUNT";
+const SETTINGS_KEY_MODE = "MP_MODE";
+const SETTINGS_KEY_DARK = "MP_DARK_MODE";
 
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [query, setQuery] = useState<string>("");
+  const [query, setQuery] = useState("");
   const [chunks, setChunks] = useState<MPChunk[]>([]);
-  const [answer, setAnswer] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-  const [model, setModel] = useState<OpenAIModel>('gpt-4');
-  const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [mode, setMode] = useState<"search" | "chat">("chat");
-  const [matchCount, setMatchCount] = useState<number>(5);
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [answer, setAnswer] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [mode, setMode] = useState<AppMode>("chat");
+  const [matchCount, setMatchCount] = useState(5);
+  const [darkMode, setDarkMode] = useState(false);
+  const [discovery, setDiscovery] = useState<DiscoveryPayload | null>(null);
+  const [discoveryLoading, setDiscoveryLoading] = useState(true);
+  const [discoveryError, setDiscoveryError] = useState("");
+  const [activeClusterId, setActiveClusterId] = useState<string | null>(null);
+
+  const activeCluster = useMemo(
+    () => discovery?.clusters.find((cluster) => cluster.id === activeClusterId) ?? discovery?.clusters[0] ?? null,
+    [activeClusterId, discovery?.clusters],
+  );
+
+  const activePromptSet = useMemo(
+    () =>
+      discovery?.promptSets.find((promptSet) => promptSet.clusterId === activeCluster?.id) ??
+      discovery?.promptSets[0] ??
+      null,
+    [activeCluster?.id, discovery?.promptSets],
+  );
 
   const toggleDarkMode = () => {
-    setDarkMode((prev) => {
-      const newMode = !prev;
-      if (typeof window !== 'undefined') {
-        document.documentElement.classList.toggle('dark', newMode);
-        localStorage.setItem('MP_DARK_MODE', newMode ? '1' : '0');
-      }
-      return newMode;
+    setDarkMode((previous) => {
+      const next = !previous;
+      document.documentElement.classList.toggle("dark", next);
+      localStorage.setItem(SETTINGS_KEY_DARK, next ? "1" : "0");
+      return next;
     });
   };
 
-  const handleSearch = async () => {
-    if (!query) {
+  const focusInput = () => {
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const usePrompt = (prompt: string) => {
+    setQuery(prompt);
+    focusInput();
+  };
+
+  const fetchDiscovery = async () => {
+    setDiscoveryLoading(true);
+    setDiscoveryError("");
+
+    try {
+      const response = await fetch("/api/discovery");
+      if (!response.ok) {
+        throw new Error(response.statusText);
+      }
+
+      const payload = (await response.json()) as DiscoveryPayload;
+      setDiscovery(payload);
+      setActiveClusterId((current) => current ?? payload.defaultClusterIds[0] ?? payload.clusters[0]?.id ?? null);
+    } catch (error) {
+      console.error(error);
+      setDiscoveryError("Discovery surfaces are temporarily unavailable.");
+    } finally {
+      setDiscoveryLoading(false);
+    }
+  };
+
+  const fetchSearchResults = async () => {
+    if (!query.trim()) {
       alert("Please enter a query.");
-      return;
+      return null;
     }
 
     setAnswer("");
     setChunks([]);
-
     setLoading(true);
 
     const searchResponse = await fetch("/api/search", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query, matches: matchCount })
+      body: JSON.stringify({ query, matches: matchCount }),
     });
 
     if (!searchResponse.ok) {
@@ -59,53 +114,39 @@ export default function Home() {
       throw new Error(searchResponse.statusText);
     }
 
-    const results: MPChunk[] = await searchResponse.json();
+    const results = (await searchResponse.json()) as MPChunk[];
     setChunks(results);
-    setLoading(false);
-    inputRef.current?.focus();
     return results;
   };
 
+  const handleSearch = async () => {
+    const results = await fetchSearchResults();
+    setLoading(false);
+    if (results) {
+      focusInput();
+    }
+  };
+
   const handleAnswer = async () => {
-    if (!query) {
-      alert("Please enter a query.");
+    const results = await fetchSearchResults();
+    if (!results) {
       return;
     }
 
-    setAnswer("");
-    setChunks([]);
-
-    setLoading(true);
-
-    const searchResponse = await fetch("/api/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ query, matches: matchCount })
-    });
-
-    if (!searchResponse.ok) {
-      setLoading(false);
-      throw new Error(searchResponse.statusText);
-    }
-
-    const results: MPChunk[] = await searchResponse.json();
-
-    setChunks(results);
-
     const prompt = endent`
-    Use the following passages from my memory palace to provide an answer to the query: "${query}"
+    Use the following passages from my memory palace to answer the query: "${query}"
 
-    ${results?.map((d: any) => d.content).join("\n\n")}
+    query: "${query}"
+
+    ${results.map((item) => item.content).join("\n\n")}
     `;
 
     const answerResponse = await fetch("/api/answer", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt }),
     });
 
     if (!answerResponse.ok) {
@@ -114,8 +155,8 @@ export default function Home() {
     }
 
     const data = answerResponse.body;
-
     if (!data) {
+      setLoading(false);
       return;
     }
 
@@ -129,14 +170,14 @@ export default function Home() {
       const { value, done: doneReading } = await reader.read();
       done = doneReading;
       const chunkValue = decoder.decode(value);
-      setAnswer((prev) => prev + chunkValue);
+      setAnswer((previous) => previous + chunkValue);
     }
 
-    inputRef.current?.focus();
+    focusInput();
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
       if (mode === "search") {
         handleSearch();
       } else {
@@ -146,19 +187,17 @@ export default function Home() {
   };
 
   const handleSave = () => {
-    localStorage.setItem("MP_MATCH_COUNT", matchCount.toString());
-    localStorage.setItem("MP_MODE", mode);
-
+    localStorage.setItem(SETTINGS_KEY_MATCH_COUNT, matchCount.toString());
+    localStorage.setItem(SETTINGS_KEY_MODE, mode);
     setShowSettings(false);
-    inputRef.current?.focus();
+    focusInput();
   };
 
   const handleClear = () => {
-    localStorage.removeItem("MP_MATCH_COUNT");
-    localStorage.removeItem("MP_MODE");
-
-    setMatchCount(10);
-    setMode("search");
+    localStorage.removeItem(SETTINGS_KEY_MATCH_COUNT);
+    localStorage.removeItem(SETTINGS_KEY_MODE);
+    setMatchCount(5);
+    setMode("chat");
   };
 
   useEffect(() => {
@@ -170,219 +209,279 @@ export default function Home() {
   }, [matchCount]);
 
   useEffect(() => {
-    const MP_MATCH_COUNT = localStorage.getItem("MP_MATCH_COUNT");
-    const MP_MODE = localStorage.getItem("MP_MODE");
-    const dark = localStorage.getItem('MP_DARK_MODE');
+    const savedMatchCount = localStorage.getItem(SETTINGS_KEY_MATCH_COUNT);
+    const savedMode = localStorage.getItem(SETTINGS_KEY_MODE);
+    const savedDark = localStorage.getItem(SETTINGS_KEY_DARK);
 
-    if (MP_MATCH_COUNT) {
-      setMatchCount(parseInt(MP_MATCH_COUNT));
+    if (savedMatchCount) {
+      setMatchCount(Number.parseInt(savedMatchCount, 10));
     }
 
-    if (MP_MODE) {
-      setMode(MP_MODE as "search" | "chat");
+    if (savedMode === "search" || savedMode === "chat") {
+      setMode(savedMode);
     }
 
-    if (dark === '1') {
+    if (savedDark === "1") {
       setDarkMode(true);
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      setDarkMode(false);
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
 
-    inputRef.current?.focus();
+    void fetchDiscovery();
+    focusInput();
   }, []);
 
   return (
     <>
       <Head>
         <title>Memory Palace</title>
-        <meta
-          name="description"
-          content={`AI-powered search and chat for Dino's Memory Palace.`}
-        />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1"
-        />
-        <link
-          rel="icon"
-          href="/favicon.ico"
-        />
+        <meta name="description" content="Search, chat, and trace the idea graph behind Dino's Memory Palace." />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="flex flex-col h-screen bg-white dark:bg-zinc-900 transition-colors duration-300">
-        <div className="flex items-center justify-between px-4 pt-2">
-          <Navbar />
-          <button
-            className="ml-2 p-2 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-            onClick={toggleDarkMode}
-            aria-label="Toggle dark mode"
-          >
-            {darkMode ? <IconSun size={22} /> : <IconMoon size={22} />}
-          </button>
-        </div>
-        <div className="flex-1 overflow-auto">
-          <div className="mx-auto flex h-full w-full max-w-[750px] flex-col items-center px-3 pt-4 sm:pt-8">
+      <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[linear-gradient(180deg,#f6f8f4_0%,#f3f6fb_42%,#eef4f8_100%)] text-slate-900 transition-colors duration-300 dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_55%,#111827_100%)] dark:text-slate-100">
+        <div className="px-4 pt-2">
+          <div className="mx-auto flex min-w-0 w-full max-w-[1340px] items-center justify-between">
+            <Navbar />
             <button
-              className="mt-4 flex cursor-pointer items-center space-x-2 rounded-full border border-zinc-600 dark:border-zinc-400 px-3 py-1 text-sm hover:opacity-50 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-              onClick={() => setShowSettings(!showSettings)}
+              className="ml-2 rounded-full border border-slate-300/80 bg-white/90 p-2 text-slate-800 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              onClick={toggleDarkMode}
+              aria-label="Toggle dark mode"
             >
-              {showSettings ? "Hide" : "Show"} Settings
+              {darkMode ? <IconSun size={22} /> : <IconMoon size={22} />}
             </button>
+          </div>
+        </div>
 
-            {showSettings && (
-              <div className="w-[340px] sm:w-[400px]">
-                <div>
-                  <div>Model</div>
-                  <select
-                    className="max-w-[400px] block w-full cursor-pointer rounded-md border border-gray-300 dark:border-zinc-600 p-2 text-black dark:text-zinc-100 bg-white dark:bg-zinc-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value as "gpt-4o-mini" | "gpt-4")}
+        <div className="flex-1 overflow-auto px-4 pb-10">
+          <div className="mx-auto flex min-w-0 w-full max-w-[1340px] flex-col gap-6 pt-4 sm:pt-8">
+            <section className="relative overflow-hidden rounded-[2.5rem] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(227,244,242,0.88)_38%,rgba(240,234,220,0.94)_100%)] px-5 py-6 shadow-[0_35px_120px_-60px_rgba(15,23,42,0.5)] dark:border-slate-700/80 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(15,118,110,0.14)_35%,rgba(120,53,15,0.16)_100%)] sm:px-8 sm:py-8">
+              <div className="absolute -right-12 top-[-3rem] h-44 w-44 rounded-full bg-teal-300/30 blur-3xl dark:bg-teal-500/20" />
+              <div className="absolute bottom-[-4rem] left-[-1rem] h-48 w-48 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
+
+              <div className="relative">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-teal-600/20 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 dark:border-teal-300/20 dark:bg-slate-900/60 dark:text-teal-200">
+                      <IconSparkles size={14} />
+                      Search-first, graph-backed
+                    </div>
+                    <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight tracking-[-0.04em] text-slate-950 dark:text-white sm:text-5xl">
+                      Search what stuck.
+                      <br />
+                      Trace why it connects.
+                    </h1>
+                    <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 dark:text-slate-300 sm:text-base">
+                      This is the front door to your memory palace: local passage search, LiteLLM-backed synthesis,
+                      and a vault graph that turns hidden links into reusable prompts.
+                    </p>
+                  </div>
+
+                  <button
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 bg-white/75 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-white dark:border-slate-700 dark:bg-slate-900/75 dark:text-slate-200 dark:hover:border-slate-600"
+                    onClick={() => setShowSettings((current) => !current)}
+                    type="button"
                   >
-                    <option value="gpt-4o-mini">GPT-4O-MINI</option>
-                    <option value="gpt-4">GPT-4</option>
-                  </select>
+                    <IconSettings size={16} />
+                    {showSettings ? "Hide settings" : "Show settings"}
+                  </button>
                 </div>
 
-                <div>
-                  <div>Mode</div>
-                  <select
-                    className="max-w-[400px] block w-full cursor-pointer rounded-md border border-gray-300 dark:border-zinc-600 p-2 text-black dark:text-zinc-100 bg-white dark:bg-zinc-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as "search" | "chat")}
-                  >
-                    <option value="search">Search</option>
-                    <option value="chat">Chat</option>
-                  </select>
+                <div className="mt-8 flex flex-wrap items-center gap-3">
+                  {(["chat", "search"] as AppMode[]).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                        mode === option
+                          ? "bg-slate-950 text-white shadow-lg dark:bg-white dark:text-slate-950"
+                          : "border border-slate-300/80 bg-white/70 text-slate-700 hover:border-slate-400 hover:bg-white dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-slate-600"
+                      }`}
+                      onClick={() => setMode(option)}
+                    >
+                      {option === "chat" ? "Chat with my palace" : "Search my passages"}
+                    </button>
+                  ))}
                 </div>
 
-                <div className="mt-2">
-                  <div>Passage Count</div>
+                {showSettings && (
+                  <div className="mt-5 max-w-xl rounded-[1.75rem] border border-white/80 bg-white/70 p-5 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.35)] backdrop-blur dark:border-slate-700 dark:bg-slate-900/75">
+                    <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                        Mode
+                        <select
+                          className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                          value={mode}
+                          onChange={(event) => setMode(event.target.value as AppMode)}
+                        >
+                          <option value="chat">Chat</option>
+                          <option value="search">Search</option>
+                        </select>
+                      </label>
+
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                        Passages
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={matchCount}
+                          onChange={(event) => setMatchCount(Number(event.target.value))}
+                          className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <button
+                        className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+                        onClick={handleSave}
+                        type="button"
+                      >
+                        Save preferences
+                      </button>
+                      <button
+                        className="rounded-full border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200"
+                        onClick={handleClear}
+                        type="button"
+                      >
+                        Reset defaults
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="relative mt-6">
+                  <IconSearch className="absolute left-4 top-4 h-5 w-5 text-slate-400 dark:text-slate-500" />
                   <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={matchCount}
-                    onChange={(e) => setMatchCount(Number(e.target.value))}
-                    className="max-w-[400px] block w-full rounded-md border border-gray-300 dark:border-zinc-600 p-2 text-black dark:text-zinc-100 bg-white dark:bg-zinc-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    ref={inputRef}
+                    className="h-16 w-full rounded-[1.7rem] border border-white/90 bg-white/90 pl-12 pr-16 text-base text-slate-900 shadow-[0_16px_50px_-35px_rgba(15,23,42,0.45)] outline-none ring-0 transition placeholder:text-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/35 dark:border-slate-700 dark:bg-slate-950/90 dark:text-slate-100 dark:placeholder:text-slate-500 sm:text-lg"
+                    type="text"
+                    placeholder="Ask a question, or use a generated prompt..."
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={handleKeyDown}
                   />
+                  <button type="button">
+                    <IconArrowRight
+                      onClick={mode === "search" ? handleSearch : handleAnswer}
+                      className="absolute right-3 top-3 h-10 w-10 rounded-full bg-teal-600 p-2 text-white transition hover:cursor-pointer hover:bg-teal-500"
+                    />
+                  </button>
                 </div>
 
-                <div className="mt-4 flex space-x-2 justify-center">
-                  <div
-                    className="flex cursor-pointer items-center space-x-2 rounded-full bg-green-500 px-3 py-1 text-sm text-white hover:bg-green-600"
-                    onClick={handleSave}
-                  >
-                    Save
-                  </div>
-
-                  <div
-                    className="flex cursor-pointer items-center space-x-2 rounded-full bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
-                    onClick={handleClear}
-                  >
-                    Clear
-                  </div>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400">
+                  <span className="rounded-full border border-slate-300/80 bg-white/70 px-3 py-1 dark:border-slate-700 dark:bg-slate-900/70">
+                    Mode: {mode}
+                  </span>
+                  <span className="rounded-full border border-slate-300/80 bg-white/70 px-3 py-1 dark:border-slate-700 dark:bg-slate-900/70">
+                    Passage count: {matchCount}
+                  </span>
+                  {discovery?.model && (
+                    <span className="rounded-full border border-slate-300/80 bg-white/70 px-3 py-1 dark:border-slate-700 dark:bg-slate-900/70">
+                      LiteLLM: {discovery.model}
+                    </span>
+                  )}
                 </div>
+              </div>
+            </section>
+
+            {discoveryLoading ? (
+              <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-6 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-900/70">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 w-48 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-24 rounded-[1.5rem] bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-[320px] rounded-[1.5rem] bg-slate-200 dark:bg-slate-800" />
+                </div>
+              </div>
+            ) : discovery ? (
+              <>
+                <ExamplePrompts
+                  clusterTitle={activeCluster?.title || "your current cluster"}
+                  promptSet={activePromptSet}
+                  stale={discovery.stale}
+                  onUsePrompt={usePrompt}
+                />
+
+                <MemoryGraph
+                  discovery={discovery}
+                  activeClusterId={activeCluster?.id || null}
+                  onSelectCluster={setActiveClusterId}
+                  onSelectPrompt={usePrompt}
+                />
+              </>
+            ) : (
+              <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                {discoveryError || "Discovery surfaces are unavailable right now."}
               </div>
             )}
 
-            <div className="relative w-full mt-4">
-              <IconSearch className="absolute top-3 w-10 left-1 h-6 rounded-full opacity-50 sm:left-3 sm:top-4 sm:h-8" />
-
-              <input
-                ref={inputRef}
-                className="h-12 w-full rounded-full border border-zinc-600 dark:border-zinc-400 pr-12 pl-11 focus:border-zinc-800 dark:focus:border-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-800 dark:focus:ring-zinc-100 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 sm:h-16 sm:py-2 sm:pr-16 sm:pl-16 sm:text-lg"
-                type="text"
-                placeholder="What did I learn so far?"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-
-              <button>
-                <IconArrowRight
-                  onClick={mode === "search" ? handleSearch : handleAnswer}
-                  className="absolute right-2 top-2.5 h-7 w-7 rounded-full bg-blue-500 p-1 hover:cursor-pointer hover:bg-blue-600 sm:right-3 sm:top-3 sm:h-10 sm:w-10 text-white"
-                />
-              </button>
-            </div>
-            
-
             {loading ? (
-              <div className="mt-6 w-full">
-                {mode === "chat" && (
-                  <>
-                    <div className="font-bold text-2xl text-zinc-900 dark:text-zinc-100">Answer</div>
-                    <div className="animate-pulse mt-2">
-                      <div className="h-4 bg-gray-300 rounded"></div>
-                      <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                      <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                      <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                      <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                    </div>
-                  </>
-                )}
-
-                <div className="font-bold text-2xl mt-6 text-zinc-900 dark:text-zinc-100">Passages</div>
-                <div className="animate-pulse mt-2">
-                  <div className="h-4 bg-gray-300 rounded"></div>
-                  <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                  <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                  <div className="h-4 bg-gray-300 rounded mt-2"></div>
-                  <div className="h-4 bg-gray-300 rounded mt-2"></div>
+              <section className="rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-900/70">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-5 w-40 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-4 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-4 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-4 w-5/6 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="mt-8 h-5 w-32 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-24 rounded-[1.5rem] bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-24 rounded-[1.5rem] bg-slate-200 dark:bg-slate-800" />
                 </div>
-              </div>
+              </section>
             ) : answer ? (
-              <div className="mt-6 flex flex-col md:flex-row gap-8 w-full">
-                <div className="flex-1 min-w-[320px] md:max-w-[65%]">
-                  <div className="font-bold text-2xl mb-2 text-zinc-900 dark:text-zinc-100">Answer</div>
-                  <div className="mb-6">
-                    <Answer text={answer} />
+              <section className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.95fr)]">
+                <div className="rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-900/70">
+                  <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">
+                    Answer
                   </div>
+                  <Answer text={answer} />
                 </div>
-                <aside className="w-full md:w-[35%] max-w-[400px] flex-shrink-0">
-                  <div className="font-bold text-2xl mb-2 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                    <span>Passages</span>
-                    <span className="text-xs font-normal text-zinc-400">({chunks.length} found)</span>
+
+                <aside className="rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-900/70">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">
+                      Supporting Passages
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      {chunks.length} found
+                    </span>
                   </div>
-                  <div className="flex flex-col gap-4">
+
+                  <div className="mt-5 flex flex-col gap-4">
                     {chunks.map((chunk, index) => (
-                      <PassageCard key={index} chunk={chunk} />
+                      <PassageCard key={`${chunk.content_title}-${index}`} chunk={chunk} />
                     ))}
                   </div>
                 </aside>
-              </div>
+              </section>
             ) : chunks.length > 0 ? (
-              <div className="mt-6 pb-16">
-                <div className="font-bold text-2xl text-zinc-900 dark:text-zinc-100">Passages</div>
-                {chunks.map((chunk, index) => (
-                  <div key={index}>
-                    <div className="mt-4 border border-zinc-600 rounded-lg p-4">
-                      <div className="flex justify-between">
-                        <div>
-                          <div className="font-bold text-xl">{chunk.content_title}</div>
-                          <div className="mt-1 font-bold text-sm">{chunk.content_date}</div>
-                        </div>
-                        <a
-                          className="hover:opacity-50 ml-2"
-                          href={chunk.content_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <IconExternalLink />
-                        </a>
-                      </div>
-                      <div className="mt-2">{chunk.content}</div>
-                    </div>
+              <section className="rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-900/70">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">
+                    Search Results
                   </div>
-                ))}
-              </div>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {chunks.length} passages
+                  </span>
+                </div>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  {chunks.map((chunk, index) => (
+                    <PassageCard key={`${chunk.content_title}-${index}`} chunk={chunk} />
+                  ))}
+                </div>
+              </section>
             ) : (
-              <div className="mt-6 text-center text-lg text-zinc-800 dark:text-zinc-100">{`AI-powered search & chat for my Memory Palace`}</div>
+              <div className="rounded-[1.75rem] border border-dashed border-slate-300/80 bg-white/60 px-5 py-5 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+                Start with a prompt, or walk the graph until an idea catches. Click generated prompts to seed the
+                query box.
+              </div>
             )}
           </div>
         </div>
+
         <Footer />
       </div>
     </>

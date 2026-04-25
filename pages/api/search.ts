@@ -1,54 +1,27 @@
-import { supabaseAdmin } from "@/utils";
-const openaiApiKey = process.env.AZURE_OPENAI_APIKEY!;
-const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT!;
-const openaiEmbedding = process.env.AZURE_OPENAI_EMBEDDING!;
-const openaiVersion = process.env.AZURE_OPENAI_VERSION!;
-export const config = {
-  runtime: "edge"
-};
+import type { NextApiRequest, NextApiResponse } from "next";
+import { searchLocalMemoryPalace } from "@/utils/localMemoryPalace";
 
-const handler = async (req: Request): Promise<Response> => {
+const handler = (req: NextApiRequest, res: NextApiResponse) => {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).send("Method Not Allowed");
+  }
 
   try {
-    const { query, matches } = (await req.json()) as {
-      query: string;
-      matches: number;
+    const { query, matches } = req.body as {
+      query?: string;
+      matches?: number;
     };
 
-    const input = query.replace(/\n/g, " ");
-
-    let url = `${openaiEndpoint}openai/deployments/${openaiEmbedding}/embeddings?api-version=2023-05-15`;
-
-    const res = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": openaiApiKey
-      },
-      method: "POST",
-      body: JSON.stringify({
-        deployment: openaiEmbedding,
-        input
-      })
-    });
-
-    const json = await res.json();
-    const embedding = json.data[0].embedding;
-
-    const { data: chunks, error } = await supabaseAdmin.rpc("mp_search", {
-      query_embedding: embedding,
-      similarity_threshold: 0.5,
-      match_count: matches
-    });
-
-    if (error) {
-      console.error(error);
-      return new Response("Error", { status: 500 });
+    if (!query?.trim()) {
+      return res.status(400).send("Query is required");
     }
 
-    return new Response(JSON.stringify(chunks), { status: 200 });
+    const chunks = searchLocalMemoryPalace(query, Math.max(1, Math.min(matches ?? 5, 10)));
+    return res.status(200).json(chunks);
   } catch (error) {
     console.error(error);
-    return new Response("Error", { status: 500 });
+    return res.status(500).send("Error");
   }
 };
 

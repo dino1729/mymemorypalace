@@ -8,6 +8,7 @@ interface PassageCardProps {
 
 export const PassageCard: React.FC<PassageCardProps> = ({ chunk }) => {
   const [expanded, setExpanded] = useState(false);
+  const hasSourceLink = /^https?:\/\//i.test(chunk.content_url || "");
   return (
     <div
       className="bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-sm hover:shadow-lg transition-shadow cursor-pointer text-zinc-900 dark:text-zinc-50"
@@ -20,16 +21,18 @@ export const PassageCard: React.FC<PassageCardProps> = ({ chunk }) => {
           </div>
           <div className="text-xs text-zinc-500 dark:text-zinc-300 mt-1">{chunk.content_date}</div>
         </div>
-        <a
-          className="hover:opacity-60 ml-2 text-blue-600 dark:text-blue-300"
-          href={chunk.content_url}
-          target="_blank"
-          rel="noreferrer"
-          title="Open Source"
-          onClick={e => e.stopPropagation()}
-        >
-          <IconExternalLink />
-        </a>
+        {hasSourceLink && (
+          <a
+            className="hover:opacity-60 ml-2 text-blue-600 dark:text-blue-300"
+            href={chunk.content_url}
+            target="_blank"
+            rel="noreferrer"
+            title="Open Source"
+            onClick={e => e.stopPropagation()}
+          >
+            <IconExternalLink />
+          </a>
+        )}
       </div>
       {expanded && (
         <div className="text-zinc-800 dark:text-zinc-100 leading-relaxed whitespace-pre-line px-4 pb-4">

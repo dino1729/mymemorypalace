@@ -1,119 +1,151 @@
-import { OpenAIModel } from "@/types";
-import { createClient } from "@supabase/supabase-js";
 import { createParser, ParsedEvent, ReconnectInterval } from "eventsource-parser";
 
-export const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const openaiApiKey = process.env.AZURE_OPENAI_APIKEY!;
-const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT!;
-const openaiModel = process.env.AZURE_OPENAI_MODEL!;
-const openaiVersion = process.env.AZURE_OPENAI_VERSION!;
+const { buildChatCompletionRequest, getLiteLLMConfig, LiteLLMError } = require("./litellm");
 
-export class OpenAIError extends Error {
-  type: string;
-  param: string;
-  code: string;
+const SYSTEM_PROMPT =
+  "You are an intelligent and helpful assistant that answers using the user's Memory Palace. Prefer the retrieved passages, synthesize them in your own words, and keep the answer concise but useful.";
 
-  constructor(message: string, type: string, param: string, code: string) {
-    super(message);
-    this.name = 'OpenAIError';
-    this.type = type;
-    this.param = param;
-    this.code = code;
+const createTextStream = (text: string) => {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+};
+
+const normalizeForMatch = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const buildFallbackAnswer = (prompt: string) => {
+  const queryMatch = prompt.match(/query:\s*"([^"]+)"/i);
+  const query = queryMatch?.[1] ?? "";
+  const normalizedQuery = normalizeForMatch(query);
+  const queryTokens = Array.from(new Set(normalizedQuery.split(" ").filter((token) => token.length > 1)));
+
+  const passageSection = prompt.replace(/^.*?["”]\s*/s, "");
+  const sentences = passageSection
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    .filter((sentence) => sentence.length > 40);
+
+  const ranked = sentences
+    .map((sentence) => {
+      const normalizedSentence = normalizeForMatch(sentence);
+      let score = 0;
+
+      if (normalizedQuery && normalizedSentence.includes(normalizedQuery)) {
+        score += 10;
+      }
+
+      for (const token of queryTokens) {
+        if (normalizedSentence.includes(token)) {
+          score += 1;
+        }
+      }
+
+      return { sentence, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const bestSentences = ranked
+    .filter((item) => item.score > 0)
+    .slice(0, 3)
+    .map((item) => item.sentence);
+
+  if (bestSentences.length === 0) {
+    return "I couldn't reach the configured LiteLLM server, so I'm falling back to your imported memory passages. Use the retrieved passages below as the source of truth for this query.";
   }
-}
 
-export const OpenAIStream = async (prompt: string) => {
+  return [
+    "I couldn't reach the configured LiteLLM server, so this answer is a direct synthesis from your local Memory Palace.",
+    bestSentences.join(" "),
+  ].join("\n\n");
+};
+
+export const createAnswerStream = async (prompt: string) => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
-  let url = `${openaiEndpoint}openai/deployments/${openaiModel}/chat/completions?api-version=${openaiVersion}`;
-  //console.log(url);
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": openaiApiKey
-    },
-    method: "POST",
-    body: JSON.stringify({
-      "model": openaiModel,
-      "messages": [
-        {
-          "role": "system",
-          "content": "You are an intelligent and helpful assistant that accurately answers queries using my memory palace – a location where my personal learnings are stored. You will be provided with a subset of passages from this memory database, which could contain the most likely answer to my query. Please use the context provided to form your answer, but try to avoid copying word-for-word from the passages. Use your own knowledge database only if you don't find a relavant answer in the provided context and keep your answer concise."
-        },
-        {
-          "role": "user",
-          "content": prompt,
-        },
+  try {
+    const config = getLiteLLMConfig(process.env);
+    const request = buildChatCompletionRequest({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+      model: config.model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
       ],
-      "max_tokens": 2048,
-      "temperature": 0.3,
-      "stream": true,
-    })
-  });
+      stream: true,
+      temperature: 0.3,
+      max_tokens: 2048,
+    });
 
-  if (res.status !== 200) {
-    const result = await res.json();
-    if (result.error) {
-      throw new OpenAIError(
-        result.error.message,
-        result.error.type,
-        result.error.param,
-        result.error.code,
-      );
-    } else {
-      throw new Error(
-        `OpenAI API returned an error: ${
-          decoder.decode(result?.value) || result.statusText
-        }`,
-      );
+    const response = await fetch(request.url, request.options);
+
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_error) {
+        payload = null;
+      }
+
+      const message =
+        payload?.error?.message ||
+        payload?.message ||
+        `LiteLLM request failed with status ${response.status}`;
+      throw new LiteLLMError(message, response.status, payload);
     }
-  }
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const onParse = (event: ParsedEvent | ReconnectInterval) => {
-        if (event.type === 'event') {
-          const data = event.data;
-  
-          // console.log(data);
-          // console.log('--------------------');
-
-          if (data === '[DONE]') {
-            console.log("End of stream");
+    const stream = new ReadableStream({
+      async start(controller) {
+        const onParse = (event: ParsedEvent | ReconnectInterval) => {
+          if (event.type !== "event") {
             return;
           }
-  
-          try {
-            const json = JSON.parse(data);
-  
-            if (json.choices[0]) {
-              if (json.choices[0].finish_reason != null) {
-                controller.close();
-                return;
-              }
-              const text = json.choices[0].delta.content;
-              const queue = encoder.encode(text);
-              controller.enqueue(queue);
-            }
-          } catch (e) {
-            // Handle JSON parsing or other errors more gracefully
-            console.error('Error processing JSON data:', e);
-  
-            // Close the controller when a JSON parsing error occurs
+
+          const data = event.data;
+          if (data === "[DONE]") {
             controller.close();
             return;
           }
-        }
-      };
-  
-      const parser = createParser(onParse);
-  
-      for await (const chunk of res.body as any) {
-        parser.feed(decoder.decode(chunk));
-      }
-    },
-  });
 
-  return stream;
+          try {
+            const json = JSON.parse(data);
+            const text = json.choices?.[0]?.delta?.content;
+
+            if (json.choices?.[0]?.finish_reason != null) {
+              controller.close();
+              return;
+            }
+
+            if (text) {
+              controller.enqueue(encoder.encode(text));
+            }
+          } catch (error) {
+            console.error("Error processing LiteLLM stream chunk:", error);
+            controller.close();
+          }
+        };
+
+        const parser = createParser(onParse);
+        for await (const chunk of response.body as any) {
+          parser.feed(decoder.decode(chunk));
+        }
+      },
+    });
+
+    return stream;
+  } catch (error) {
+    console.error("Falling back to local answer stream:", error);
+    return createTextStream(buildFallbackAnswer(prompt));
+  }
 };

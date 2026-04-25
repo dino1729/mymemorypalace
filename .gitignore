@@ -43,3 +43,29 @@ next-env.d.ts
 # tsn
 tsn.json
 nohup.out
+
+# Python / migrated full-stack app
+__pycache__/
+*.py[cod]
+.venv
+.venv/
+.pytest_cache/
+.coverage
+
+# Sensitive local config for migrated app
+config/config.yml
+config/.env
+
+# Frontend dev/build artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Local runtime data
+.runtime/
+memory_palace/
+data/
+web_search_cache/
+web_search_data/
+bing_data/
+newsletter_research_data/
+vault/

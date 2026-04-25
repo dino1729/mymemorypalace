@@ -1,9 +1,3 @@
-// export enum OpenAIModel {
-//   GPT35_TURBO_16K = "gpt-4o-mini",
-//   GPT4 = "gpt-4",
-// }
-export type OpenAIModel = 'gpt-4o-mini' | 'gpt-4';
-
 export type MemoryPalace = {
   title: string;
   url: string;
@@ -31,4 +25,43 @@ export type MPJSON = {
   length: number;
   tokens: number;
   contents: MemoryPalace[];
+};
+
+export type DiscoveryNode = {
+  id: string;
+  slug: string;
+  label: string;
+  summary: string;
+  relatedNodeIds: string[];
+};
+
+export type DiscoveryEdge = {
+  id: string;
+  source: string;
+  target: string;
+};
+
+export type DiscoveryCluster = {
+  id: string;
+  title: string;
+  nodes: string[];
+};
+
+export type ClusterPromptSet = {
+  clusterId: string;
+  highlightedNodeIds: string[];
+  prompts: string[];
+  source: "litellm" | "deterministic" | "empty";
+};
+
+export type DiscoveryPayload = {
+  generatedAt: string;
+  stale: boolean;
+  model: string;
+  embeddingModel: string;
+  defaultClusterIds: string[];
+  clusters: DiscoveryCluster[];
+  nodes: DiscoveryNode[];
+  edges: DiscoveryEdge[];
+  promptSets: ClusterPromptSet[];
 };

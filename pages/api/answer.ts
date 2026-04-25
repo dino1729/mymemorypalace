@@ -1,24 +1,16 @@
-import { OpenAIStream } from "@/utils";
+import { createAnswerStream } from "@/utils";
 
 export const config = {
-  runtime: "edge"
+  runtime: "edge",
 };
 
 const handler = async (req: Request): Promise<Response> => {
-  // try {
-  //   const { prompt, apiKey } = (await req.json()) as {
-  //     prompt: string;
-  //     apiKey: string;
-  //   };
-
-  //   const stream = await OpenAIStream(prompt, apiKey);
-
   try {
     const { prompt } = (await req.json()) as {
       prompt: string;
     };
 
-    const stream = await OpenAIStream(prompt);
+    const stream = await createAnswerStream(prompt);
 
     return new Response(stream);
   } catch (error) {

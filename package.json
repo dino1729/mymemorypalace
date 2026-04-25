@@ -6,9 +6,13 @@
     "dev": "next dev -p 3001 -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
+    "test": "node --test",
     "lint": "next lint",
     "scrape": "tsx scripts/scrape.ts",
-    "embed": "tsx scripts/embed.ts"
+    "ingest-memory-palace": "tsx scripts/ingest-memory-palace.ts",
+    "server:start": "node scripts/server-control.js start",
+    "server:stop": "node scripts/server-control.js stop",
+    "server:status": "node scripts/server-control.js status"
   },
   "dependencies": {
     "@next/font": "^13.2.3",
@@ -16,7 +20,7 @@
     "@types/node": "18.14.0",
     "@types/react": "18.0.28",
     "@types/react-dom": "18.0.11",
-    "azure-openai": "^0.9.0",
+    "d3-force": "^3.0.0",
     "endent": "^2.1.0",
     "eventsource-parser": "^0.1.0",
     "next": "^13.1.6",
@@ -27,17 +31,15 @@
   },
   "devDependencies": {
     "@next/env": "^13.2.3",
-    "@supabase/supabase-js": "^2.8.0",
     "autoprefixer": "^10.4.13",
     "axios": "^1.3.4",
     "cheerio": "^1.0.0-rc.12",
     "esbuild": "^0.17.18",
-    "gpt-3-encoder": "^1.1.4",
-    "openai": "^3.1.0",
-    "postcss": "^8.4.21",
-    "tailwindcss": "^3.2.7",
     "eslint": "8.36.0",
     "eslint-config-next": "13.2.4",
+    "gpt-3-encoder": "^1.1.4",
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.2.7",
     "tsx": "^3.12.3"
   }
 }
